@@ -1,0 +1,320 @@
+---
+title: "Final Project"
+author: "Matthew Sherrard, Polina Loukiantchikov, Alysa Kulchenko"
+date: "2025-03-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+library(dplyr)
+library(readr)
+```
+
+### Abstract
+
+Our topic aims to explore the potential correlation between the prices of Bitcoin and Ethereum to the fluctuation of S&P 500 stock prices. We chose to analyze daily price movement from 2018 to 2024 to provide a wide range of data (ETH prices were widely accessible beginning in 2018). We used R to examine a potential correlation, discovering whether price movements in cryptocurrencies may influence, or be influenced by, shifts in the broader financial markets. This analysis could provide valuable insights into the interconnectedness of digital and traditional asset markets. Our results show that there is no significant correlation between the major cryptocurrencies and the S&P, and any similar changes are caused by external factors. 
+
+### Intro
+
+Our topic piqued interest because our group actively trades cryptocurrency, and we thought researching the correlation between the S&P and crypto would not only be beneficial to us, but also for trading analysts, stockbrokers, and researchers. From various articles we have read in the past, we noticed an overall understanding that there may be a correlation between crypto and the US stock market, however, we never found any concrete data to back this up. The two most traded cryptocurrencies are Bitcoin (BTC) and Ethereum (ETH), so we decided to focus our research on those. We chose the S&P to represent the US stock exchange as it consists of the 500 largest and most traded US-based companies. The research questions we wanted to answer are as follows:
+
+1. How does the price of major cryptocurrencies impact the price of the S&P 500 or vice versa?
+
+2. Are major cryptocurrencies more volatile than the S&P 500? 
+
+3. How does Bitcoin/Ethereum react to major economic events compared to the S&P 500?
+
+### Data Source
+
+We used 3 datasets for our research to represent Bitcoin, Ethereum, and the S&P 500 prices respectively. Each row in each dataset represents a particular day and the closing price of the S&P or cryptocurrency for that day.
+
+#### Bitcoin dataset:
+
+Link: https://www.kaggle.com/datasets/kapturovalexander/bitcoin-and-ethereum-prices-from-start-to-2023/data?select=BTC-USD+%282014-2024%29.csv
+
+Collected by Alexander Kapturov who accessed Bitcoin close prices through TradingView. This data is freely accessible under the Public Domain for usage.
+
+#### Ethereum dataset:
+
+Link: https://www.kaggle.com/datasets/kapturovalexander/bitcoin-and-ethereum-prices-from-start-to-2023/data?select=ETH-USD+%282017-2024%29.csv
+
+Collected by Alexander Kapturov who accessed Ethereum close prices through TradingView. This data is freely accessible under the Public Domain for usage.
+
+#### S&P 500 Dataset:
+
+Link: https://www.nasdaq.com/market-activity/index/spx/historical?page=1&rows_per_page=10&timeline=y10
+
+This data comes directly from Nasdaq Data Link and is freely accessible for public use/download.
+
+### Data
+
+Bitcoin dataset:
+
+7 columns, 3412 rows
+
+Ethereum dataset:
+
+7 columns, 2264 rows
+
+S&P 500 dataset:
+
+5 rows, 2521 columns
+
+Each row in each dataset represents a particular date and the open/close prices of each cryptocurrency and the S&P. There are no missing values, but we decided to filter all the data starting from 2018, as ETH prices were available for that entire year.
+
+### Method
+
+```{r read data, warning = FALSE, message = FALSE}
+setwd("~/Downloads")
+sp_500 <- read_delim("HistoricalData_1741385261654.csv")
+bit <- read_delim("BTC-USD (2014-2024).csv")
+eth <- read_delim("ETH-USD (2017-2024).csv")
+```
+
+Date columns in data originally stored as character strings in %m/%d/%Y format, then we used mutate() and as.date() to convert the date columns into proper date objects across all data sets. For S&P 500, we kept "Date" and "Close/Last." We decided to use "Close/Last" because it is the final value of the S&P 500 index at the end of the trading day. For Bitcoin and Ethereum, we decided to use "Date" and "Close," (data sets come from same source, so column names are the same). We chose "Close" for similar reasons as S&P 500, as it represents the final price of Bitcoin/Ethereum. 
+
+```{r S&P 500 Data}
+colnames(sp_500)
+head(sp_500,10)
+
+sp_500 <- sp_500 %>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y"))
+
+sp_500 <- sp_500 %>% rename("close_last" = "Close/Last")
+
+ggplot(sp_500, aes(x = Date, y = close_last)) +  
+  geom_line(color = "blue") +  
+  labs(title = "Change in S&P 500 Closing Price Over Time",
+       x = "Date",
+       y = "Closing Price") +
+  theme_minimal()
+```
+
+```{r Bitcoin Data}
+dim(bit)
+colnames(bit)
+head(bit,10)
+
+bit <- bit %>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y"))
+
+ggplot(bit, aes(x = Date, y = Close)) +  
+  geom_line(color = "red") +  
+  labs(title = "Bitcoin Closing Price Over Time",
+       x = "Date",
+       y = "Closing Price (USD)") +
+  theme_minimal()
+```
+
+```{r Ethereum Data}
+dim(eth)
+colnames(eth)
+head(eth,10)
+
+eth <- eth %>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y"))
+
+ggplot(eth, aes(x = Date, y = Close)) +  
+  geom_line(color = "forestgreen") +  
+  labs(title = "Ethereum Closing Price Over Time",
+       x = "Date",
+       y = "Closing Price (USD)") +
+  theme_minimal()
+```
+For merging, we renamed the columns to SP500_Close, Bitcoin_Close, and Ethereum_Close. We then merged all three data sets on the common column of "Date" using merge() and reduce(). We did not remove missing values when merging because it may disrupt the dates. What we mean by this is that the S&P 500 doesn’t trade on weekends, while crypto does.
+
+```{r Merging the Data}
+colnames(sp_500)
+colnames(bit)
+colnames(eth)
+
+if ("close_last" %in% colnames(sp_500)) {
+  setnames(sp_500, old = "close_last", new = "SP500_Close")
+}
+
+if ("Close" %in% colnames(bit)) {
+  setnames(bit, old = "Close", new = "Bitcoin_Close")
+}
+
+if ("Close" %in% colnames(eth)) {
+  setnames(eth, old = "Close", new = "Ethereum_Close")
+}
+
+merged_data <- reduce(list(sp_500, bit, eth), merge, by = "Date", all.x = TRUE)
+
+colnames(merged_data)
+head(merged_data)
+```
+
+For variables, we focused on Closing Price of the S&P 500, Bitcoin, and Ethereum. The closing price is what makes the variables relevant to each other. We inspected the data sets once merged using dim(), colnames(), and head(). Before merging the Data steps, we made line plots of each variable individual before merging them. Once we merged them. We focused on different times depending on what different research questions we were doing. Some limitations could be with time, as crypto trades 24/7, while S&P 500 only trades weekdays 9:00 am – 4:00 pm ET, but we did not see any issues. Relating to this is missing values for the S&P not trading on weekends, but again, we did not run into any issues. The biggest challenge was changing the column names so we could easily merge the data, and ensuring dates were formatted correctly.
+
+```{r line plot, warning = FALSE}
+merged_data <- merged_data %>% filter(Date >= as.Date("2018-01-01"))
+ggplot(merged_data, aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs( title = "Comparison of Cryptocurrency and S&P 500 Prices Over Time",
+        x = "Date",
+        y = "Closing Price (USD)",
+        color = "Asset Type") +
+  theme_minimal()
+```
+
+We cannot determine particular trends by looking at the graphs over such a broad period of time, so we have separated the graphs by year below, starting from 2018 (when ETH data became available).
+
+```{r 2018}
+ggplot(subset(merged_data, format(as.Date(Date), "%Y") == "2018"), aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs(title = "Comparison of Cryptocurrency and S&P 500 Prices - 2018",
+       x = "Date",
+       y = "Closing Price (USD)",
+       color = "Asset Type") +
+  theme_minimal()
+
+```
+```{r 2019}
+ggplot(subset(merged_data, format(as.Date(Date), "%Y") == "2019"), aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs(title = "Comparison of Cryptocurrency and S&P 500 Prices - 2019",
+       x = "Date",
+       y = "Closing Price (USD)",
+       color = "Asset Type") +
+  theme_minimal()
+```
+```{r 2020}
+ggplot(subset(merged_data, format(as.Date(Date), "%Y") == "2020"), aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs(title = "Comparison of Cryptocurrency and S&P 500 Prices - 2020",
+       x = "Date",
+       y = "Closing Price (USD)",
+       color = "Asset Type") +
+  theme_minimal()
+
+```
+```{r 2021}
+ggplot(subset(merged_data, format(as.Date(Date), "%Y") == "2021"), aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs(title = "Comparison of Cryptocurrency and S&P 500 Prices - 2021",
+       x = "Date",
+       y = "Closing Price (USD)",
+       color = "Asset Type") +
+  theme_minimal()
+```
+```{r 2022}
+ggplot(subset(merged_data, format(as.Date(Date), "%Y") == "2022"), aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs(title = "Comparison of Cryptocurrency and S&P 500 Prices - 2022",
+       x = "Date",
+       y = "Closing Price (USD)",
+       color = "Asset Type") +
+  theme_minimal()
+
+```
+```{r 2023}
+ggplot(subset(merged_data, format(as.Date(Date), "%Y") == "2023"), aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs(title = "Comparison of Cryptocurrency and S&P 500 Prices - 2023",
+       x = "Date",
+       y = "Closing Price (USD)",
+       color = "Asset Type") +
+  theme_minimal()
+
+```
+
+Upon initial sight, the lines on the graphs above do not seem to have direct correlation with each other. However, we must keep in mind that the S&P 500 is not a highly volatile index. This index arguably contains the 500 top performing and most reliable US-based companies, all which are projected to grow over time, but not as spontaneously as cryptocurrency. However, we noticed a  small correlation between the cryptocurrencies and the S&P, which we have zoomed into below:
+
+```{r dates 1}
+ggplot(subset(merged_data, Date >= "2020-02-01" & Date <= "2020-05-30"), aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs(title = "Comparison of Cryptocurrency and S&P 500 Prices (Feb - June 2020)",
+       x = "Date",
+       y = "Closing Price (USD)",
+       color = "Asset Type") +
+  theme_minimal()
+```
+Between March and April, we observed a slight dip in both the cryptocurrencies and the S&P 500. After the dip, both the S&P and Bitcoin prices went up in a semi-linear fashion. However, this was the only significant correlation we found between the 3 trend lines, so we decided to research external factors that could have caused this. Through our research and personal memory, March 2020 was when Covid-19 caused initial lockdowns and the eventual pandemic, and all markets, including other large stock indexes and cryptocurrencies, went down throughout this 2-3 month period. Therefore, we determined this apparent correlation was due to an external factor rather than a relationship between cryptocurrency and the S&P.
+
+### Results
+
+To answer our initial research questions: 
+
+1. How does the price of major cryptocurrencies impact the price of the S&P 500 or vice versa?
+
+```{r dates 1c}
+ggplot(subset(merged_data, Date >= "2020-02-01" & Date <= "2020-05-30"), aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs(title = "Comparison of Cryptocurrency and S&P 500 Prices (Feb - June 2020)",
+       x = "Date",
+       y = "Closing Price (USD)",
+       color = "Asset Type") +
+  theme_minimal()
+```
+
+We did not find that the price of major cryptocurrencies impacted the price of the S&P 500, or vice versa (see above paragraph in Method section).
+
+2. Are major cryptocurrencies more volatile than the S&P 500? 
+
+```{r line plot2, warning = FALSE}
+merged_data <- merged_data %>% filter(Date >= as.Date("2018-01-01"))
+ggplot(merged_data, aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs( title = "Comparison of Cryptocurrency and S&P 500 Prices Over Time",
+        x = "Date",
+        y = "Closing Price (USD)",
+        color = "Asset Type") +
+  theme_minimal()
+```
+
+Yes, we found that major cryptocurrencies are much more volatile than the S&P. Upon looking at the graph above, it is evident that Bitcoin and Ethereum experience abrupt and rapid changes (defined as volatility) more frequently than the S&P does.
+
+3. How does Bitcoin/Ethereum react to major economic events compared to the S&P 500?
+
+```{r dates 1b}
+ggplot(subset(merged_data, Date >= "2020-02-01" & Date <= "2020-05-30"), aes(x = Date)) + 
+  geom_line(aes(y = SP500_Close, color = "S&P 500")) +
+  geom_line(aes(y = Bitcoin_Close, color = "Bitcoin")) +
+  geom_line(aes(y = Ethereum_Close, color = "Ethereum")) +
+  labs(title = "Comparison of Cryptocurrency and S&P 500 Prices (Feb - June 2020)",
+       x = "Date",
+       y = "Closing Price (USD)",
+       color = "Asset Type") +
+  theme_minimal()
+```
+
+Bitcoin and Ethereum react similarly to the S&P 500 and other stock exchanges to major economic events, the primary example being Covid-19.
+
+### Discussion
+
+There is not enough evidence to confirm a correlation between Bitcoin and Ethereum price fluctuations and those of S&P 500. While all three graphs experienced increases in stock price as seen on the merged graph, the increase isn’t consistent enough between the three datasets to declare a clear correlation. The two cryptocurrency prices visibly fluctuate more than the S&P 500 stock prices. There seems to be an overall misconception amongst investors and traders who treat cryptocurrency like stocks which creates the appearance of a correlation with the stock market, when there isn’t enough clear evidence to support that assumption The datasets are strong overall, but Ethereum’s data is limited because while it was founded in 2016, there isn’t widely available data for the first few years so only data from 2018- 2024 is provided. Potential room for improvement could include incorporating other cryptocurrencies to expand analysis, and comparing global stock prices with US.
+
+### Summary
+
+Our findings highlight an overall misconception and lack of data analysis to back up investor claims of correlation between the US stock exchange and cryptocurrency. Our research will be beneficial to our mentioned target audience and stakeholders, as our analysis is strictly data-driven and not reliant on simply political and economoical analyses.
+
+  
